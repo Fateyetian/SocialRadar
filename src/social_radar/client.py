@@ -84,17 +84,26 @@ class TikHubClient:
         return session_id
 
     def _parse_tool_result(self, resp: httpx.Response) -> str:
-        """Extract the result field from SSE response."""
+        """Extract the inner JSON text from MCP SSE response.
+
+        TikHub returns: {"result": {"content": [{"type": "text", "text": "{...}"}]}}
+        We extract content[0].text — the actual platform API JSON string.
+        """
         text = resp.text
         for line in text.splitlines():
             if line.startswith("data:"):
                 chunk = line[len("data:"):].strip()
                 try:
                     data = json.loads(chunk)
-                    if "result" in data:
-                        return json.dumps(data["result"], ensure_ascii=False)
                     if "error" in data:
                         return json.dumps({"error": data["error"]}, ensure_ascii=False)
+                    if "result" in data:
+                        result = data["result"]
+                        content_list = result.get("content", [])
+                        if content_list and content_list[0].get("type") == "text":
+                            # Return the inner JSON string from TikHub API
+                            return content_list[0].get("text", json.dumps(result, ensure_ascii=False))
+                        return json.dumps(result, ensure_ascii=False)
                 except json.JSONDecodeError:
                     pass
         return text

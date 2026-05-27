@@ -25,28 +25,21 @@ class SearchResult:
 
 
 def normalize_xiaohongshu(raw: dict, platform_cfg) -> list[SearchResult]:
-    """Parse xiaohongshu search response into results."""
+    """Parse xiaohongshu search response into results.
+
+    Actual API response path: data.data.data.items[] → item.note.{title,desc,user,...}
+    """
     results = []
     try:
-        result_data = raw.get("result", raw)
-        # Try different response formats
-        if isinstance(result_data, str):
-            result_data = json.loads(result_data)
-
-        items = (
-            result_data.get("data", {}).get("items", [])
-            or result_data.get("items", [])
-            or result_data.get("notes", [])
-            or []
-        )
+        items = raw.get("data", {}).get("data", {}).get("items", [])
         for item in items:
-            note_card = item.get("note_card") or item
-            note_id = note_card.get("note_id") or item.get("id", "")
-            title = note_card.get("display_title", "") or note_card.get("title", "")
-            desc = note_card.get("desc", "") or note_card.get("description", "")
-            author_info = note_card.get("user", {}) or note_card.get("author", {})
-            author_name = author_info.get("nickname", "") or author_info.get("nick_name", "")
-            interact = note_card.get("interact_info", {})
+            note = item.get("note", item)
+            note_id = note.get("id", "") or item.get("id", "")
+            title = note.get("title", "") or note.get("display_title", "")
+            desc = note.get("desc", "")
+            user = note.get("user", {})
+            author_name = user.get("nickname", "") or user.get("nick_name", "")
+            interact = note.get("interact_info", {})
             results.append(
                 SearchResult(
                     platform="xiaohongshu",
@@ -55,11 +48,11 @@ def normalize_xiaohongshu(raw: dict, platform_cfg) -> list[SearchResult]:
                     url=platform_cfg.note_link_template.format(note_id=note_id) if note_id else "",
                     summary=desc,
                     author=author_name,
-                    likes=interact.get("liked_count", 0) or note_card.get("likes", 0),
-                    comments=interact.get("comment_count", 0),
-                    collect_count=interact.get("collected_count", 0),
-                    published_at=note_card.get("time", ""),
-                    raw=item,
+                    likes=int(interact.get("liked_count", 0)),
+                    comments=int(note.get("comments_count", 0)),
+                    collect_count=int(interact.get("collected_count", 0)),
+                    published_at=str(note.get("time", "") or note.get("timestamp", "")),
+                    raw=note,
                 )
             )
     except Exception:
@@ -68,41 +61,46 @@ def normalize_xiaohongshu(raw: dict, platform_cfg) -> list[SearchResult]:
 
 
 def normalize_zhihu(raw: dict, platform_cfg) -> list[SearchResult]:
-    """Parse zhihu article search response into results."""
+    """Parse zhihu article search response into results.
+
+    Actual API response path: data.data[] → item.object.{title,excerpt,url,voteup_count,...}
+    """
     results = []
     try:
-        result_data = raw.get("result", raw)
-        if isinstance(result_data, str):
-            result_data = json.loads(result_data)
-
-        items = (
-            result_data.get("data", {}).get("list", [])
-            or result_data.get("data", [])
-            or result_data.get("results", [])
-            or []
-        )
+        items = raw.get("data", {}).get("data", [])
         for item in items:
             obj = item.get("object", item)
-            title = obj.get("title", "") or item.get("title", "")
-            excerpt = obj.get("excerpt", "") or item.get("excerpt", "") or obj.get("content", "")[:200]
-            url = obj.get("url", "") or item.get("url", "")
-            author_name = obj.get("author", {}).get("name", "") or item.get("author", {}).get("name", "")
-            vote_count = obj.get("voteup_count", 0) or item.get("voteup_count", 0)
-            comment_count = obj.get("comment_count", 0) or item.get("comment_count", 0)
-            qid = item.get("question", {}).get("id", "") if isinstance(item.get("question"), dict) else ""
-            aid = obj.get("id", "") or item.get("id", "")
+            obj_type = item.get("type", "")
+
+            title = obj.get("title", "")
+            excerpt = obj.get("excerpt", "") or obj.get("content", "") or ""
+            if isinstance(excerpt, str):
+                excerpt = excerpt[:200]
+            url = obj.get("url", "")
+            author = obj.get("author", {})
+            author_name = author.get("name", "") if isinstance(author, dict) else ""
+            vote_count = int(obj.get("voteup_count", 0))
+            comment_count = int(obj.get("comment_count", 0))
+            qid = ""
+            question = obj.get("question", {})
+            if isinstance(question, dict):
+                qid = str(question.get("id", ""))
+            aid = str(obj.get("id", ""))
+
+            if not title and not excerpt:
+                continue
 
             results.append(
                 SearchResult(
                     platform="zhihu",
                     platform_name="知乎",
-                    title=title,
+                    title=title or excerpt[:60],
                     url=url or platform_cfg.answer_link_template.format(question_id=qid, answer_id=aid),
                     summary=excerpt,
                     author=author_name,
                     likes=vote_count,
                     comments=comment_count,
-                    raw=item,
+                    raw=obj,
                 )
             )
     except Exception:

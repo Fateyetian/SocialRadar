@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SocialRadar — 跨平台社交媒体搜索</title>
+<style>
+  :root {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --text-dim: #64748b;
+    --accent: #4f46e5;
+    --accent-soft: #eef2ff;
+    --accent-hover: #4338ca;
+    --xhs: #ff2442;
+    --zhihu: #056de8;
+    --radius: 14px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-hover: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 50% 0%, rgba(79,70,229,0.04), transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(5,109,232,0.03), transparent 50%);
+  }
+
+  .container { max-width: 860px; margin: 0 auto; padding: 48px 20px 32px; }
+
+  /* Header */
+  .header { text-align: center; margin-bottom: 32px; }
+  .logo {
+    font-size: 34px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed); -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .subtitle { color: var(--text-dim); font-size: 15px; }
+
+  /* Search */
+  .search-box {
+    display: flex; gap: 10px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 6px 6px 6px 20px; margin-bottom: 14px;
+    box-shadow: var(--shadow); transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .search-box:focus-within {
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+  }
+  .search-box input {
+    flex: 1; background: none; border: none; color: var(--text); font-size: 16px;
+    outline: none; min-width: 0;
+  }
+  .search-box input::placeholder { color: #94a3b8; }
+  .search-box button {
+    background: var(--accent); color: white; border: none; border-radius: 10px;
+    padding: 10px 24px; font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: background 0.2s, transform 0.1s; white-space: nowrap;
+  }
+  .search-box button:hover { background: var(--accent-hover); }
+  .search-box button:active { transform: scale(0.97); }
+  .search-box button:disabled { opacity: 0.65; cursor: not-allowed; }
+
+  /* Platform toggles */
+  .platform-toggles { display: flex; gap: 8px; margin-bottom: 28px; justify-content: center; flex-wrap: wrap; }
+  .pt-btn {
+    padding: 6px 18px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-dim); cursor: pointer;
+    font-size: 13px; transition: all 0.2s; font-weight: 500; box-shadow: var(--shadow);
+  }
+  .pt-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .pt-btn:hover { border-color: var(--accent); }
+
+  /* Stats */
+  .stats { text-align: center; margin-bottom: 20px; color: var(--text-dim); font-size: 14px; }
+
+  /* Results */
+  .results { display: flex; flex-direction: column; gap: 10px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px 22px; box-shadow: var(--shadow); transition: box-shadow 0.2s, border-color 0.2s;
+  }
+  .card:hover { border-color: #c7d2fe; box-shadow: var(--shadow-hover); }
+
+  .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .card-platform {
+    font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .card-platform.xiaohongshu { background: #fff1f2; color: #e11d48; }
+  .card-platform.zhihu { background: #eff6ff; color: #2563eb; }
+
+  .card-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; line-height: 1.45; }
+  .card-title a { color: var(--text); text-decoration: none; }
+  .card-title a:hover { color: var(--accent); }
+  .card-title em { font-style: normal; color: var(--accent); background: var(--accent-soft); padding: 0 2px; border-radius: 2px; }
+
+  .card-summary { color: var(--text-dim); font-size: 14px; line-height: 1.6; margin-bottom: 10px;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+  .card-meta { display: flex; gap: 16px; font-size: 13px; color: var(--text-dim); align-items: center; flex-wrap: wrap; }
+  .card-meta span { display: flex; align-items: center; gap: 4px; }
+  .card-author { font-weight: 500; color: #475569; }
+
+  /* Loading */
+  .loading { display: none; text-align: center; padding: 60px 20px; }
+  .loading.active { display: block; }
+  .spinner {
+    width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 14px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty { text-align: center; padding: 60px 20px; color: var(--text-dim); display: none; }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+
+  /* Footer */
+  .footer { text-align: center; margin-top: 40px; color: var(--text-dim); font-size: 13px; }
+  .footer a { color: var(--accent); text-decoration: none; font-weight: 500; }
+
+  /* Error */
+  .error-banner {
+    background: #fef2f2; border: 1px solid #fecaca;
+    color: #dc2626; padding: 10px 16px; border-radius: 10px; margin-bottom: 14px;
+    font-size: 13px; display: none;
+  }
+  .error-banner.active { display: block; }
+
+  /* Hint tags */
+  .hint-tags { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 22px; }
+  .hint-tag {
+    padding: 5px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border);
+    color: var(--text-dim); font-size: 13px; cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow);
+  }
+  .hint-tag:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="logo">&#x1F4E1; SocialRadar</div>
+    <div class="subtitle">一句话，扫遍多个社交平台 &mdash; 专为 AI 从业者打造</div>
+  </div>
+
+  <div class="search-box" id="searchBox">
+    <input type="text" id="queryInput" placeholder="搜索关键词，如：agentic RL 面试、大模型算法求职..."
+           autofocus autocomplete="off" value="agentic RL">
+    <button id="searchBtn" onclick="doSearch()">&#x1F50D; 搜索</button>
+  </div>
+
+  <div class="platform-toggles">
+    <button class="pt-btn active" data-p="all" onclick="togglePlatform(this)">全部平台</button>
+    <button class="pt-btn" data-p="xiaohongshu" onclick="togglePlatform(this)">&#x1F4D5; 小红书</button>
+    <button class="pt-btn" data-p="zhihu" onclick="togglePlatform(this)">&#x1F4A1; 知乎</button>
+  </div>
+
+  <div class="hint-tags">
+    <span class="hint-tag" onclick="quickSearch('agentic RL 面试')">agentic RL 面试</span>
+    <span class="hint-tag" onclick="quickSearch('GRPO 训练')">GRPO 训练</span>
+    <span class="hint-tag" onclick="quickSearch('大模型算法求职')">大模型算法求职</span>
+    <span class="hint-tag" onclick="quickSearch('DeepSeek-R1')">DeepSeek-R1</span>
+    <span class="hint-tag" onclick="quickSearch('RLHF')">RLHF</span>
+    <span class="hint-tag" onclick="quickSearch('reward hacking')">reward hacking</span>
+  </div>
+
+  <div class="error-banner" id="errorBanner"></div>
+
+  <div class="loading" id="loading"><div class="spinner"></div><div style="color:var(--text-dim)">正在搜索多个平台...</div></div>
+
+  <div class="stats" id="stats"></div>
+  <div class="results" id="results"></div>
+
+  <div class="footer">
+    Built with &#x2764; for the AI community &middot;
+    Powered by <a href="https://tikhub.io">TikHub</a> &amp; <a href="https://modelcontextprotocol.io">MCP</a>
+  </div>
+</div>
+
+<script>
+let currentPlatform = 'all';
+
+document.getElementById('queryInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doSearch();
+});
+
+function togglePlatform(btn) {
+  document.querySelectorAll('.pt-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentPlatform = btn.dataset.p;
+}
+
+function quickSearch(q) {
+  document.getElementById('queryInput').value = q;
+  doSearch();
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function doSearch() {
+  const q = document.getElementById('queryInput').value.trim();
+  if (!q) return;
+
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('stats').innerHTML = '';
+  document.getElementById('errorBanner').classList.remove('active');
+  document.getElementById('loading').classList.add('active');
+  document.getElementById('searchBtn').disabled = true;
+
+  try {
+    const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}&platforms=${currentPlatform}`);
+    const data = await resp.json();
+
+    if (data.error) {
+      document.getElementById('errorBanner').textContent = data.error;
+      document.getElementById('errorBanner').classList.add('active');
+      return;
+    }
+
+    document.getElementById('stats').innerHTML =
+      `共 <strong>${data.total}</strong> 条结果 &middot; 「${escapeHtml(data.query)}」`;
+
+    if (!data.results.length) {
+      document.getElementById('empty').style.display = 'block';
+      document.getElementById('empty').innerHTML =
+        `<div class="empty-icon">&#x1F50E;</div>
+         <div>未找到与「${escapeHtml(q)}」相关的结果</div>
+         <div style="font-size:13px;margin-top:6px;color:var(--text-dim)">换个关键词试试？</div>`;
+    } else {
+      document.getElementById('empty').style.display = 'none';
+      document.getElementById('results').innerHTML = data.results.map(r => {
+        const likesStr = r.likes > 0 ? `<span>&#x2764; ${r.likes.toLocaleString()}</span>` : '';
+        const commentsStr = r.comments > 0 ? `<span>&#x1F4AC; ${r.comments}</span>` : '';
+        const collectsStr = r.collect_count > 0 ? `<span>&#x2B50; ${r.collect_count.toLocaleString()}</span>` : '';
+        return `<div class="card">
+          <div class="card-header">
+            <span class="card-platform ${r.platform}">${r.platform_name}</span>
+          </div>
+          <div class="card-title">
+            <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener">${r.title}</a>
+          </div>
+          ${r.summary ? `<div class="card-summary">${escapeHtml(r.summary)}</div>` : ''}
+          <div class="card-meta">
+            ${r.author ? `<span class="card-author">&#x1F464; ${escapeHtml(r.author)}</span>` : ''}
+            ${likesStr} ${commentsStr} ${collectsStr}
+          </div>
+        </div>`;
+      }).join('');
+    }
+  } catch (e) {
+    document.getElementById('errorBanner').textContent = '搜索请求失败: ' + e.message;
+    document.getElementById('errorBanner').classList.add('active');
+  } finally {
+    document.getElementById('loading').classList.remove('active');
+    document.getElementById('searchBtn').disabled = false;
+  }
+}
+
+// Auto-search on page load
+doSearch();
+</script>
+</body>
+</html>
