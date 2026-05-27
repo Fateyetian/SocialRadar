@@ -1,0 +1,36 @@
+# SocialRadar platform configuration
+# Each platform maps to a TikHub MCP endpoint + preferred search tool
+
+xiaohongshu:
+  name: 小红书
+  endpoint: https://mcp.tikhub.io/xiaohongshu/mcp
+  search_tool: xiaohongshu_app_v2_search_notes
+  search_params:
+    keyword: "{query}"
+    page: 1
+    sort_type: general
+    note_type: 不限
+    time_filter: 不限
+  detail_tool: xiaohongshu_app_v2_get_mixed_note_detail
+  note_link_template: "https://www.xiaohongshu.com/explore/{note_id}"
+  max_results: 20
+
+zhihu:
+  name: 知乎
+  endpoint: https://mcp.tikhub.io/zhihu/mcp
+  search_tool: zhihu_web_fetch_article_search_v3
+  search_params:
+    keyword: "{query}"
+    limit: "20"
+    offset: "0"
+    sort: ""
+  ai_search_tool: zhihu_web_fetch_ai_search
+  ai_search_params:
+    message_content: "{query}"
+  question_answers_tool: zhihu_web_fetch_question_answers
+  question_answers_params:
+    question_id: "{id}"
+    limit: 5
+    offset: 0
+  answer_link_template: "https://www.zhihu.com/question/{question_id}/answer/{answer_id}"
+  max_results: 20
