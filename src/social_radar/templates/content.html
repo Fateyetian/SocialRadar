@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">SocialRadar — 内容详情</title>
+<style>
+  :root {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --text-dim: #64748b;
+    --accent: #4f46e5;
+    --accent-soft: #eef2ff;
+    --radius: 14px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 50% 0%, rgba(79,70,229,0.04), transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(5,109,232,0.03), transparent 50%);
+  }
+  .container { max-width: 780px; margin: 0 auto; padding: 32px 20px; }
+  .back-link {
+    display: inline-flex; align-items: center; gap: 6px; color: var(--accent);
+    text-decoration: none; font-size: 14px; font-weight: 600; margin-bottom: 24px;
+    transition: opacity 0.2s;
+  }
+  .back-link:hover { opacity: 0.75; }
+
+  .content-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 28px 32px; box-shadow: var(--shadow);
+  }
+  .platform-badge {
+    display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 10px;
+    border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px;
+  }
+  .platform-badge.xiaohongshu { background: #fff1f2; color: #e11d48; }
+  .platform-badge.zhihu { background: #eff6ff; color: #2563eb; }
+
+  .content-title { font-size: 22px; font-weight: 700; line-height: 1.4; margin-bottom: 14px; }
+  .content-title em { font-style: normal; color: var(--accent); background: var(--accent-soft); padding: 0 2px; border-radius: 2px; }
+
+  .content-meta {
+    display: flex; gap: 18px; font-size: 14px; color: var(--text-dim); margin-bottom: 24px;
+    align-items: center; flex-wrap: wrap;
+  }
+  .content-meta span { display: flex; align-items: center; gap: 4px; }
+  .author-name { font-weight: 600; color: #475569; }
+
+  .content-divider { border: none; border-top: 1px solid var(--border); margin: 0 0 20px 0; }
+
+  .content-body { font-size: 15px; line-height: 1.85; color: #334155; white-space: pre-wrap; word-break: break-word; }
+  .content-body p { margin-bottom: 14px; }
+  .content-body img { max-width: 100%; border-radius: 8px; margin: 10px 0; }
+  .content-body a { color: var(--accent); }
+
+  .source-link {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 28px;
+    color: var(--accent); text-decoration: none; font-weight: 600; font-size: 14px;
+    padding: 8px 20px; border-radius: 8px; background: var(--accent-soft);
+    transition: background 0.2s;
+  }
+  .source-link:hover { background: #e0e7ff; }
+
+  .loading-hint { text-align: center; padding: 40px; color: var(--text-dim); }
+  .spinner {
+    width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .footer { text-align: center; margin-top: 36px; color: var(--text-dim); font-size: 13px; }
+  .footer a { color: var(--accent); text-decoration: none; font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="/" class="back-link">&larr; 返回搜索结果</a>
+
+  <div class="content-card" id="contentCard">
+    <div class="platform-badge" id="platformBadge"></div>
+    <div class="content-title" id="contentTitle"></div>
+    <div class="content-meta" id="contentMeta"></div>
+    <hr class="content-divider">
+    <div class="content-body" id="contentBody">
+      <div class="loading-hint"><div class="spinner"></div>加载完整内容...</div>
+    </div>
+    <a class="source-link" id="sourceLink" href="#" target="_blank" rel="noopener">&#x1F517; 查看原文</a>
+  </div>
+
+  <div class="footer">
+    Built with &#x2764; for the AI community &middot;
+    Powered by <a href="https://tikhub.io">TikHub</a> &amp; <a href="https://modelcontextprotocol.io">MCP</a>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const title = params.get('title') || '无标题';
+const platform = params.get('platform') || '';
+const platformName = params.get('platform_name') || '';
+const author = params.get('author') || '';
+const url = params.get('url') || '';
+const summary = params.get('summary') || '';
+const publishedAt = params.get('published_at') || '';
+const likes = parseInt(params.get('likes') || '0');
+const comments = parseInt(params.get('comments') || '0');
+const collects = parseInt(params.get('collect_count') || '0');
+
+document.title = title + ' — SocialRadar';
+document.getElementById('platformBadge').textContent = platformName;
+document.getElementById('platformBadge').className = 'platform-badge ' + platform;
+document.getElementById('contentTitle').innerHTML = title;
+document.getElementById('sourceLink').href = url;
+
+let metaHtml = '';
+if (author) metaHtml += `<span class="author-name">&#x1F464; ${escapeHtml(author)}</span>`;
+if (publishedAt) metaHtml += `<span>&#x1F4C5; ${escapeHtml(publishedAt)}</span>`;
+if (likes > 0) metaHtml += `<span>&#x2764; ${likes.toLocaleString()}</span>`;
+if (comments > 0) metaHtml += `<span>&#x1F4AC; ${comments}</span>`;
+if (collects > 0) metaHtml += `<span>&#x2B50; ${collects.toLocaleString()}</span>`;
+document.getElementById('contentMeta').innerHTML = metaHtml;
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// Try to fetch full content
+async function loadDetail() {
+  const contentId = url.split('/').pop() || '';
+  try {
+    const resp = await fetch('/api/detail/' + platform + '/' + encodeURIComponent(contentId) + '?url=' + encodeURIComponent(url));
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.full_text) {
+        document.getElementById('contentBody').innerHTML =
+          '<div style="white-space:pre-wrap;word-break:break-word">' + escapeHtml(data.full_text) + '</div>';
+      } else {
+        showSummary();
+      }
+    } else {
+      showSummary();
+    }
+  } catch(e) {
+    showSummary();
+  }
+}
+
+function showSummary() {
+  if (summary) {
+    document.getElementById('contentBody').innerHTML =
+      '<p>' + escapeHtml(summary) + '</p>' +
+      '<p style="margin-top:16px;color:var(--text-dim)">仅显示摘要，点击「查看原文」阅读完整内容</p>';
+  } else {
+    document.getElementById('contentBody').innerHTML =
+      '<p style="color:var(--text-dim)">暂无内容预览，请点击下方链接查看原文</p>';
+  }
+}
+
+loadDetail();
+</script>
+</body>
+</html>

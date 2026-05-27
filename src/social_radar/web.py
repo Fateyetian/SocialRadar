@@ -37,11 +37,17 @@ logger = logging.getLogger("socialradar.web")
 app = FastAPI(title="SocialRadar", version="0.1.0")
 
 _TEMPLATE_PATH = Path(__file__).parent / "templates" / "index.html"
+_CONTENT_TEMPLATE_PATH = Path(__file__).parent / "templates" / "content.html"
 
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
     return _TEMPLATE_PATH.read_text(encoding="utf-8")
+
+
+@app.get("/content", response_class=HTMLResponse)
+async def content_page():
+    return _CONTENT_TEMPLATE_PATH.read_text(encoding="utf-8")
 
 
 def _init_client(platform_cfg, api_key: str) -> TikHubClient:
@@ -62,6 +68,7 @@ def _result_to_dict(r: SearchResult) -> dict:
         "likes": r.likes,
         "comments": r.comments,
         "collect_count": r.collect_count,
+        "published_at": r.published_at,
     }
 
 
@@ -115,6 +122,7 @@ async def search(
         for platform_cfg in all_platforms:
             try:
                 client = await asyncio.to_thread(_init_client, platform_cfg, api_key)
+                # Main keyword search
                 resp = await asyncio.to_thread(
                     client.search, platform_cfg.search_tool, q,
                     platform_cfg.make_search_args(q),
@@ -124,6 +132,21 @@ async def search(
                 if normalize_fn:
                     results = normalize_fn(raw, platform_cfg)
                     all_results.extend(results)
+
+                # AI semantic search for zhihu
+                if platform_cfg.key == "zhihu" and platform_cfg.ai_search_tool:
+                    try:
+                        ai_resp = await asyncio.to_thread(
+                            client.search, platform_cfg.ai_search_tool, q,
+                            platform_cfg.ai_search_params,
+                        )
+                        ai_raw = json.loads(ai_resp)
+                        if normalize_fn:
+                            ai_results = normalize_fn(ai_raw, platform_cfg)
+                            all_results.extend(ai_results)
+                    except Exception:
+                        pass  # AI search is supplementary; ignore failures
+
                 await asyncio.to_thread(client.close)
             except Exception as e:
                 logger.warning("Platform %s failed: %s", platform_cfg.key, e)

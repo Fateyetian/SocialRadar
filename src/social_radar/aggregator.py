@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -22,6 +22,33 @@ class SearchResult:
     collect_count: int = 0
     published_at: str = ""
     raw: dict = field(default_factory=dict)
+
+
+def _format_time(value) -> str:
+    """Convert Unix timestamp (seconds/milliseconds) or ISO string to readable date."""
+    if not value:
+        return ""
+    try:
+        if isinstance(value, (int, float)):
+            ts = value if value < 1e12 else value / 1000.0
+            return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
+        if isinstance(value, str):
+            # Try Unix timestamp string
+            try:
+                ts = float(value)
+                ts = ts if ts < 1e12 else ts / 1000.0
+                return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
+            except ValueError:
+                pass
+            # Try ISO format
+            for fmt in ["%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d %H:%M:%S"]:
+                try:
+                    return datetime.strptime(value.replace("Z", "+0000"), fmt.replace("Z", "+0000")).strftime("%Y-%m-%d")
+                except ValueError:
+                    continue
+            return value[:10] if len(value) >= 10 else value
+    except Exception:
+        return str(value)[:10] if len(str(value)) >= 10 else str(value)
 
 
 def normalize_xiaohongshu(raw: dict, platform_cfg) -> list[SearchResult]:
@@ -51,7 +78,7 @@ def normalize_xiaohongshu(raw: dict, platform_cfg) -> list[SearchResult]:
                     likes=int(interact.get("liked_count", 0)),
                     comments=int(note.get("comments_count", 0)),
                     collect_count=int(interact.get("collected_count", 0)),
-                    published_at=str(note.get("time", "") or note.get("timestamp", "")),
+                    published_at=_format_time(note.get("time") or note.get("timestamp") or ""),
                     raw=note,
                 )
             )
@@ -90,6 +117,10 @@ def normalize_zhihu(raw: dict, platform_cfg) -> list[SearchResult]:
             if not title and not excerpt:
                 continue
 
+            published_at = _format_time(
+                obj.get("created_time") or obj.get("created") or
+                obj.get("updated_time") or item.get("created_time") or ""
+            )
             results.append(
                 SearchResult(
                     platform="zhihu",
@@ -100,6 +131,7 @@ def normalize_zhihu(raw: dict, platform_cfg) -> list[SearchResult]:
                     author=author_name,
                     likes=vote_count,
                     comments=comment_count,
+                    published_at=published_at,
                     raw=obj,
                 )
             )

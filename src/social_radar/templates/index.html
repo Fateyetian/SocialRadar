@@ -121,7 +121,7 @@
   }
   .bm-btn:hover { color: #f59e0b; transform: scale(1.15); }
   .bm-btn.active { color: #f59e0b; }
-  .card { padding-right: 48px; } /* make room for bookmark btn */
+  .card { padding-right: 48px; }
 
   /* Loading */
   .loading { display: none; text-align: center; padding: 60px 20px; }
@@ -166,40 +166,6 @@
     color: var(--text-dim); font-size: 13px; cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow);
   }
   .hint-tag:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-
-  /* Modal */
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(15,23,42,0.5); backdrop-filter: blur(4px);
-    z-index: 1000; display: flex; align-items: center; justify-content: center;
-    opacity: 0; pointer-events: none; transition: opacity 0.25s;
-  }
-  .modal-overlay.open { opacity: 1; pointer-events: auto; }
-  .modal {
-    background: var(--surface); border-radius: var(--radius); width: 90%; max-width: 720px;
-    max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-    transform: translateY(20px); transition: transform 0.25s;
-  }
-  .modal-overlay.open .modal { transform: translateY(0); }
-  .modal-header {
-    display: flex; align-items: flex-start; gap: 12px; padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
-  }
-  .modal-header-info { flex: 1; min-width: 0; }
-  .modal-title { font-size: 18px; font-weight: 700; line-height: 1.4; margin-bottom: 6px; }
-  .modal-meta { display: flex; gap: 12px; font-size: 13px; color: var(--text-dim); align-items: center; flex-wrap: wrap; }
-  .modal-close {
-    background: none; border: none; font-size: 24px; color: var(--text-dim); cursor: pointer;
-    padding: 4px; line-height: 1; flex-shrink: 0; transition: color 0.2s;
-  }
-  .modal-close:hover { color: var(--text); }
-  .modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; font-size: 15px; line-height: 1.75; color: #334155; }
-  .modal-body p { margin-bottom: 12px; }
-  .modal-body img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
-  .modal-footer {
-    display: flex; gap: 8px; padding: 14px 24px; border-top: 1px solid var(--border); align-items: center;
-  }
-  .modal-footer .bm-btn { position: static; font-size: 20px; }
-  .modal-source-link { color: var(--accent); font-size: 13px; text-decoration: none; font-weight: 500; margin-left: auto; }
-  .modal-source-link:hover { text-decoration: underline; }
 
   /* Tag filters */
   .tag-filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -278,21 +244,6 @@
   <div class="footer">
     Built with &#x2764; for the AI community &middot;
     Powered by <a href="https://tikhub.io">TikHub</a> &amp; <a href="https://modelcontextprotocol.io">MCP</a>
-  </div>
-</div>
-
-<!-- ── Detail Modal ── -->
-<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-header-info">
-        <div class="modal-title" id="modalTitle"></div>
-        <div class="modal-meta" id="modalMeta"></div>
-      </div>
-      <button class="modal-close" onclick="closeModal()">&times;</button>
-    </div>
-    <div class="modal-body" id="modalBody"><div class="spinner"></div></div>
-    <div class="modal-footer" id="modalFooter"></div>
   </div>
 </div>
 
@@ -400,8 +351,10 @@ function renderCards(container, results) {
     const likesStr = r.likes > 0 ? `<span>&#x2764; ${r.likes.toLocaleString()}</span>` : '';
     const commentsStr = r.comments > 0 ? `<span>&#x1F4AC; ${r.comments}</span>` : '';
     const collectsStr = r.collect_count > 0 ? `<span>&#x2B50; ${r.collect_count.toLocaleString()}</span>` : '';
+    const timeStr = r.published_at ? `<span>&#x1F4C5; ${escapeHtml(r.published_at)}</span>` : '';
     const bmClass = bookmarkedUrls.has(r.url) ? 'active' : '';
-    return `<div class="card" data-idx="${i}" data-url="${escapeHtml(r.url)}" data-platform="${r.platform}" data-result='${JSON.stringify(r).replace(/'/g,"&#39;")}'>
+    const contentUrl = `/content?title=${encodeURIComponent(r.title)}&platform=${r.platform}&platform_name=${encodeURIComponent(r.platform_name)}&author=${encodeURIComponent(r.author||'')}&url=${encodeURIComponent(r.url)}&summary=${encodeURIComponent(r.summary||'')}&published_at=${encodeURIComponent(r.published_at||'')}&likes=${r.likes}&comments=${r.comments}&collect_count=${r.collect_count||0}`;
+    return `<div class="card" style="cursor:pointer" onclick="window.open('${contentUrl}','_self')">
       <div class="card-actions">
         <button class="bm-btn ${bmClass}" onclick="event.stopPropagation();toggleBookmark(this, ${i})" title="收藏">&#x2B50;</button>
       </div>
@@ -412,18 +365,10 @@ function renderCards(container, results) {
       ${r.summary ? `<div class="card-summary">${escapeHtml(r.summary)}</div>` : ''}
       <div class="card-meta">
         ${r.author ? `<span class="card-author">&#x1F464; ${escapeHtml(r.author)}</span>` : ''}
-        ${likesStr} ${commentsStr} ${collectsStr}
+        ${timeStr} ${likesStr} ${commentsStr} ${collectsStr}
       </div>
     </div>`;
   }).join('');
-
-  // Attach click handlers for detail modal
-  container.querySelectorAll('.card').forEach(card => {
-    card.addEventListener('click', function() {
-      const result = JSON.parse(this.dataset.result);
-      openDetail(result);
-    });
-  });
 }
 
 // ── Bookmark toggle ──
@@ -556,77 +501,6 @@ function filterByTag(tag) {
     c.classList.toggle('active', (tag === null && c.classList.contains('all-chip')) || c.textContent.trim() === tag);
   });
 }
-
-// ── Detail Modal ──
-async function openDetail(result) {
-  const overlay = document.getElementById('modalOverlay');
-  document.getElementById('modalTitle').innerHTML = result.title;
-  document.getElementById('modalMeta').innerHTML = `
-    <span class="card-platform ${result.platform}">${result.platform_name}</span>
-    ${result.author ? `<span class="card-author">&#x1F464; ${escapeHtml(result.author)}</span>` : ''}
-    ${result.likes > 0 ? `<span>&#x2764; ${result.likes.toLocaleString()}</span>` : ''}
-  `;
-  document.getElementById('modalBody').innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div><div style="color:var(--text-dim);margin-top:12px">加载完整内容...</div></div>';
-  document.getElementById('modalFooter').innerHTML = `
-    <button class="bm-btn ${bookmarkedUrls.has(result.url) ? 'active' : ''}" onclick="modalToggleBookmark('${escapeHtml(result.url)}')" title="收藏">&#x2B50;</button>
-    <a href="${escapeHtml(result.url)}" target="_blank" rel="noopener" class="modal-source-link">&#x1F517; 查看原文</a>
-  `;
-  overlay.classList.add('open');
-  document.body.style.overflow = 'hidden';
-
-  // Fetch detail content
-  try {
-    const contentId = result.url.split('/').pop() || result.url;
-    const resp = await fetch(`/api/detail/${result.platform}/${encodeURIComponent(contentId)}?url=${encodeURIComponent(result.url)}`);
-    if (resp.ok) {
-      const data = await resp.json();
-      document.getElementById('modalBody').innerHTML =
-        `<div style="white-space:pre-wrap;word-break:break-word">${escapeHtml(data.full_text || data.summary || '暂无详细内容')}</div>`;
-    } else {
-      // Fallback: show summary with link
-      document.getElementById('modalBody').innerHTML =
-        `<p>${escapeHtml(result.summary || '暂无详细内容')}</p>
-         <p style="margin-top:16px"><a href="${escapeHtml(result.url)}" target="_blank" style="color:var(--accent)">查看原文 &rarr;</a></p>`;
-    }
-  } catch(e) {
-    document.getElementById('modalBody').innerHTML =
-      `<p>${escapeHtml(result.summary || '暂无详细内容')}</p>
-       <p style="margin-top:16px;color:var(--text-dim)">无法加载完整内容，请查看原文</p>`;
-  }
-}
-
-function closeModal() {
-  document.getElementById('modalOverlay').classList.remove('open');
-  document.body.style.overflow = '';
-}
-
-async function modalToggleBookmark(url) {
-  // Find result in current results or bookmark list
-  const result = currentResults.find(r => r.url === url);
-  if (!result) return;
-  if (bookmarkedUrls.has(url)) {
-    const listResp = await fetch('/api/bookmarks?page_size=200');
-    const listData = await listResp.json();
-    const bm = listData.results.find(b => b.url === url);
-    if (bm) await fetch(`/api/bookmarks/${bm.id}`, { method: 'DELETE' });
-    bookmarkedUrls.delete(url);
-  } else {
-    await fetch('/api/bookmarks', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(result)
-    });
-    bookmarkedUrls.add(url);
-  }
-  // Update button state
-  const btn = document.querySelector('#modalFooter .bm-btn');
-  if (btn) btn.classList.toggle('active', bookmarkedUrls.has(url));
-}
-
-// Keyboard: Escape closes modal
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeModal();
-});
 
 // ── Init ──
 doSearch();
