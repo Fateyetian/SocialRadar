@@ -14,8 +14,6 @@
     --accent: #4f46e5;
     --accent-soft: #eef2ff;
     --accent-hover: #4338ca;
-    --xhs: #ff2442;
-    --zhihu: #056de8;
     --radius: 14px;
     --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
     --shadow-hover: 0 4px 12px rgba(0,0,0,0.08);
@@ -28,17 +26,30 @@
       radial-gradient(ellipse at 50% 0%, rgba(79,70,229,0.04), transparent 50%),
       radial-gradient(ellipse at 80% 100%, rgba(5,109,232,0.03), transparent 50%);
   }
-
   .container { max-width: 860px; margin: 0 auto; padding: 48px 20px 32px; }
 
   /* Header */
-  .header { text-align: center; margin-bottom: 32px; }
+  .header { text-align: center; margin-bottom: 20px; }
   .logo {
     font-size: 34px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px;
     background: linear-gradient(135deg, #4f46e5, #7c3aed); -webkit-background-clip: text;
     -webkit-text-fill-color: transparent; background-clip: text;
   }
   .subtitle { color: var(--text-dim); font-size: 15px; }
+
+  /* Nav */
+  .nav-tabs { display: flex; gap: 4px; margin-bottom: 24px; justify-content: center; }
+  .nav-tab {
+    padding: 8px 28px; border: none; background: transparent; cursor: pointer;
+    font-size: 14px; font-weight: 600; color: var(--text-dim); border-radius: 10px;
+    transition: all 0.2s;
+  }
+  .nav-tab:hover { color: var(--accent); background: var(--accent-soft); }
+  .nav-tab.active { color: var(--accent); background: var(--accent-soft); }
+
+  /* Views */
+  .view { display: none; }
+  .view.active { display: block; }
 
   /* Search */
   .search-box {
@@ -81,6 +92,7 @@
   .card {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
     padding: 18px 22px; box-shadow: var(--shadow); transition: box-shadow 0.2s, border-color 0.2s;
+    cursor: pointer; position: relative;
   }
   .card:hover { border-color: #c7d2fe; box-shadow: var(--shadow-hover); }
 
@@ -93,8 +105,6 @@
   .card-platform.zhihu { background: #eff6ff; color: #2563eb; }
 
   .card-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; line-height: 1.45; }
-  .card-title a { color: var(--text); text-decoration: none; }
-  .card-title a:hover { color: var(--accent); }
   .card-title em { font-style: normal; color: var(--accent); background: var(--accent-soft); padding: 0 2px; border-radius: 2px; }
 
   .card-summary { color: var(--text-dim); font-size: 14px; line-height: 1.6; margin-bottom: 10px;
@@ -103,6 +113,15 @@
   .card-meta { display: flex; gap: 16px; font-size: 13px; color: var(--text-dim); align-items: center; flex-wrap: wrap; }
   .card-meta span { display: flex; align-items: center; gap: 4px; }
   .card-author { font-weight: 500; color: #475569; }
+
+  .card-actions { position: absolute; top: 14px; right: 18px; display: flex; gap: 6px; }
+  .bm-btn {
+    background: none; border: none; cursor: pointer; font-size: 18px; color: #cbd5e1;
+    transition: color 0.2s, transform 0.15s; padding: 4px; line-height: 1;
+  }
+  .bm-btn:hover { color: #f59e0b; transform: scale(1.15); }
+  .bm-btn.active { color: #f59e0b; }
+  .card { padding-right: 48px; } /* make room for bookmark btn */
 
   /* Loading */
   .loading { display: none; text-align: center; padding: 60px 20px; }
@@ -114,7 +133,19 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   .empty { text-align: center; padding: 60px 20px; color: var(--text-dim); display: none; }
+  .empty.active { display: block; }
   .empty-icon { font-size: 48px; margin-bottom: 12px; }
+
+  /* Load more */
+  .load-more-wrap { text-align: center; margin-top: 20px; display: none; }
+  .load-more-wrap.active { display: block; }
+  .load-more-btn {
+    padding: 10px 40px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--accent); cursor: pointer;
+    font-size: 14px; font-weight: 600; transition: all 0.2s; box-shadow: var(--shadow);
+  }
+  .load-more-btn:hover { background: var(--accent-soft); border-color: var(--accent); }
+  .load-more-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* Footer */
   .footer { text-align: center; margin-top: 40px; color: var(--text-dim); font-size: 13px; }
@@ -135,6 +166,54 @@
     color: var(--text-dim); font-size: 13px; cursor: pointer; transition: all 0.2s; box-shadow: var(--shadow);
   }
   .hint-tag:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.5); backdrop-filter: blur(4px);
+    z-index: 1000; display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.25s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: auto; }
+  .modal {
+    background: var(--surface); border-radius: var(--radius); width: 90%; max-width: 720px;
+    max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    transform: translateY(20px); transition: transform 0.25s;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-header {
+    display: flex; align-items: flex-start; gap: 12px; padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+  }
+  .modal-header-info { flex: 1; min-width: 0; }
+  .modal-title { font-size: 18px; font-weight: 700; line-height: 1.4; margin-bottom: 6px; }
+  .modal-meta { display: flex; gap: 12px; font-size: 13px; color: var(--text-dim); align-items: center; flex-wrap: wrap; }
+  .modal-close {
+    background: none; border: none; font-size: 24px; color: var(--text-dim); cursor: pointer;
+    padding: 4px; line-height: 1; flex-shrink: 0; transition: color 0.2s;
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; font-size: 15px; line-height: 1.75; color: #334155; }
+  .modal-body p { margin-bottom: 12px; }
+  .modal-body img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+  .modal-footer {
+    display: flex; gap: 8px; padding: 14px 24px; border-top: 1px solid var(--border); align-items: center;
+  }
+  .modal-footer .bm-btn { position: static; font-size: 20px; }
+  .modal-source-link { color: var(--accent); font-size: 13px; text-decoration: none; font-weight: 500; margin-left: auto; }
+  .modal-source-link:hover { text-decoration: underline; }
+
+  /* Tag filters */
+  .tag-filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tag-chip {
+    padding: 4px 14px; border-radius: 16px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-dim); cursor: pointer;
+    font-size: 13px; transition: all 0.2s;
+  }
+  .tag-chip:hover, .tag-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .tag-chip .count { color: var(--text-dim); font-size: 11px; margin-left: 2px; }
+
+  /* Bookmarks empty */
+  .bm-empty { text-align: center; padding: 60px 20px; color: var(--text-dim); display: none; }
+  .bm-empty.active { display: block; }
 </style>
 </head>
 <body>
@@ -144,33 +223,57 @@
     <div class="subtitle">一句话，扫遍多个社交平台 &mdash; 专为 AI 从业者打造</div>
   </div>
 
-  <div class="search-box" id="searchBox">
-    <input type="text" id="queryInput" placeholder="搜索关键词，如：agentic RL 面试、大模型算法求职..."
-           autofocus autocomplete="off" value="agentic RL">
-    <button id="searchBtn" onclick="doSearch()">&#x1F50D; 搜索</button>
+  <nav class="nav-tabs">
+    <button class="nav-tab active" data-tab="search" onclick="switchView('search')">&#x1F50D; 搜索</button>
+    <button class="nav-tab" data-tab="bookmarks" onclick="switchView('bookmarks')">&#x2B50; 书签</button>
+  </nav>
+
+  <!-- ── Search View ── -->
+  <div id="searchView" class="view active">
+    <div class="search-box" id="searchBox">
+      <input type="text" id="queryInput" placeholder="搜索关键词，如：agentic RL 面试、大模型算法求职..."
+             autofocus autocomplete="off" value="agentic RL">
+      <button id="searchBtn" onclick="doSearch()">&#x1F50D; 搜索</button>
+    </div>
+
+    <div class="platform-toggles">
+      <button class="pt-btn active" data-p="all" onclick="togglePlatform(this)">全部平台</button>
+      <button class="pt-btn" data-p="xiaohongshu" onclick="togglePlatform(this)">&#x1F4D5; 小红书</button>
+      <button class="pt-btn" data-p="zhihu" onclick="togglePlatform(this)">&#x1F4A1; 知乎</button>
+    </div>
+
+    <div class="hint-tags">
+      <span class="hint-tag" onclick="quickSearch('agentic RL 面试')">agentic RL 面试</span>
+      <span class="hint-tag" onclick="quickSearch('GRPO 训练')">GRPO 训练</span>
+      <span class="hint-tag" onclick="quickSearch('大模型算法求职')">大模型算法求职</span>
+      <span class="hint-tag" onclick="quickSearch('DeepSeek-R1')">DeepSeek-R1</span>
+      <span class="hint-tag" onclick="quickSearch('RLHF')">RLHF</span>
+      <span class="hint-tag" onclick="quickSearch('reward hacking')">reward hacking</span>
+    </div>
+
+    <div class="error-banner" id="errorBanner"></div>
+    <div class="loading" id="loading"><div class="spinner"></div><div style="color:var(--text-dim)">正在搜索多个平台...</div></div>
+
+    <div class="stats" id="stats"></div>
+    <div class="empty" id="empty"></div>
+    <div class="results" id="results"></div>
+    <div class="load-more-wrap" id="loadMoreWrap">
+      <button class="load-more-btn" id="loadMoreBtn" onclick="loadMore()">加载更多...</button>
+    </div>
   </div>
 
-  <div class="platform-toggles">
-    <button class="pt-btn active" data-p="all" onclick="togglePlatform(this)">全部平台</button>
-    <button class="pt-btn" data-p="xiaohongshu" onclick="togglePlatform(this)">&#x1F4D5; 小红书</button>
-    <button class="pt-btn" data-p="zhihu" onclick="togglePlatform(this)">&#x1F4A1; 知乎</button>
+  <!-- ── Bookmarks View ── -->
+  <div id="bookmarksView" class="view">
+    <div class="tag-filters" id="tagFilters"></div>
+    <div class="bm-empty active" id="bmEmpty">
+      <div class="empty-icon">&#x2B50;</div>
+      <div>还没有书签，去搜索结果中收藏感兴趣的内容吧</div>
+    </div>
+    <div class="results" id="bmResults"></div>
+    <div class="load-more-wrap" id="bmLoadMoreWrap">
+      <button class="load-more-btn" id="bmLoadMoreBtn" onclick="loadMoreBookmarks()">加载更多...</button>
+    </div>
   </div>
-
-  <div class="hint-tags">
-    <span class="hint-tag" onclick="quickSearch('agentic RL 面试')">agentic RL 面试</span>
-    <span class="hint-tag" onclick="quickSearch('GRPO 训练')">GRPO 训练</span>
-    <span class="hint-tag" onclick="quickSearch('大模型算法求职')">大模型算法求职</span>
-    <span class="hint-tag" onclick="quickSearch('DeepSeek-R1')">DeepSeek-R1</span>
-    <span class="hint-tag" onclick="quickSearch('RLHF')">RLHF</span>
-    <span class="hint-tag" onclick="quickSearch('reward hacking')">reward hacking</span>
-  </div>
-
-  <div class="error-banner" id="errorBanner"></div>
-
-  <div class="loading" id="loading"><div class="spinner"></div><div style="color:var(--text-dim)">正在搜索多个平台...</div></div>
-
-  <div class="stats" id="stats"></div>
-  <div class="results" id="results"></div>
 
   <div class="footer">
     Built with &#x2764; for the AI community &middot;
@@ -178,15 +281,45 @@
   </div>
 </div>
 
-<script>
-let currentPlatform = 'all';
+<!-- ── Detail Modal ── -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-header-info">
+        <div class="modal-title" id="modalTitle"></div>
+        <div class="modal-meta" id="modalMeta"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody"><div class="spinner"></div></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
 
+<script>
+// ── State ──
+let currentPlatform = 'all';
+let currentPage = 1;
+let currentQuery = '';
+let currentResults = [];
+let bmPage = 1;
+let bmTag = null;
+let bookmarkedUrls = new Set();
+
+// ── View switching ──
+function switchView(name) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === name + 'View'));
+  if (name === 'bookmarks') loadBookmarks();
+}
+
+// ── Search ──
 document.getElementById('queryInput').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') doSearch();
 });
 
 function togglePlatform(btn) {
-  document.querySelectorAll('.pt-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#searchView .pt-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   currentPlatform = btn.dataset.p;
 }
@@ -202,18 +335,24 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-async function doSearch() {
+async function doSearch(page) {
+  if (page === undefined) { currentPage = 1; currentResults = []; }
   const q = document.getElementById('queryInput').value.trim();
   if (!q) return;
+  currentQuery = q;
 
-  document.getElementById('results').innerHTML = '';
-  document.getElementById('stats').innerHTML = '';
+  if (currentPage === 1) {
+    document.getElementById('results').innerHTML = '';
+    document.getElementById('stats').innerHTML = '';
+    document.getElementById('empty').classList.remove('active');
+  }
   document.getElementById('errorBanner').classList.remove('active');
   document.getElementById('loading').classList.add('active');
+  document.getElementById('loadMoreWrap').classList.remove('active');
   document.getElementById('searchBtn').disabled = true;
 
   try {
-    const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}&platforms=${currentPlatform}`);
+    const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}&platforms=${currentPlatform}&page=${currentPage}&page_size=20`);
     const data = await resp.json();
 
     if (data.error) {
@@ -225,32 +364,21 @@ async function doSearch() {
     document.getElementById('stats').innerHTML =
       `共 <strong>${data.total}</strong> 条结果 &middot; 「${escapeHtml(data.query)}」`;
 
-    if (!data.results.length) {
-      document.getElementById('empty').style.display = 'block';
+    if (!data.total) {
+      document.getElementById('empty').classList.add('active');
       document.getElementById('empty').innerHTML =
         `<div class="empty-icon">&#x1F50E;</div>
          <div>未找到与「${escapeHtml(q)}」相关的结果</div>
          <div style="font-size:13px;margin-top:6px;color:var(--text-dim)">换个关键词试试？</div>`;
-    } else {
-      document.getElementById('empty').style.display = 'none';
-      document.getElementById('results').innerHTML = data.results.map(r => {
-        const likesStr = r.likes > 0 ? `<span>&#x2764; ${r.likes.toLocaleString()}</span>` : '';
-        const commentsStr = r.comments > 0 ? `<span>&#x1F4AC; ${r.comments}</span>` : '';
-        const collectsStr = r.collect_count > 0 ? `<span>&#x2B50; ${r.collect_count.toLocaleString()}</span>` : '';
-        return `<div class="card">
-          <div class="card-header">
-            <span class="card-platform ${r.platform}">${r.platform_name}</span>
-          </div>
-          <div class="card-title">
-            <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener">${r.title}</a>
-          </div>
-          ${r.summary ? `<div class="card-summary">${escapeHtml(r.summary)}</div>` : ''}
-          <div class="card-meta">
-            ${r.author ? `<span class="card-author">&#x1F464; ${escapeHtml(r.author)}</span>` : ''}
-            ${likesStr} ${commentsStr} ${collectsStr}
-          </div>
-        </div>`;
-      }).join('');
+      return;
+    }
+
+    currentResults = currentResults.concat(data.results);
+    renderCards(document.getElementById('results'), currentResults);
+    document.getElementById('empty').classList.remove('active');
+
+    if (data.has_next) {
+      document.getElementById('loadMoreWrap').classList.add('active');
     }
   } catch (e) {
     document.getElementById('errorBanner').textContent = '搜索请求失败: ' + e.message;
@@ -261,7 +389,246 @@ async function doSearch() {
   }
 }
 
-// Auto-search on page load
+function loadMore() {
+  currentPage++;
+  doSearch(currentPage);
+}
+
+// ── Card rendering ──
+function renderCards(container, results) {
+  container.innerHTML = results.map((r, i) => {
+    const likesStr = r.likes > 0 ? `<span>&#x2764; ${r.likes.toLocaleString()}</span>` : '';
+    const commentsStr = r.comments > 0 ? `<span>&#x1F4AC; ${r.comments}</span>` : '';
+    const collectsStr = r.collect_count > 0 ? `<span>&#x2B50; ${r.collect_count.toLocaleString()}</span>` : '';
+    const bmClass = bookmarkedUrls.has(r.url) ? 'active' : '';
+    return `<div class="card" data-idx="${i}" data-url="${escapeHtml(r.url)}" data-platform="${r.platform}" data-result='${JSON.stringify(r).replace(/'/g,"&#39;")}'>
+      <div class="card-actions">
+        <button class="bm-btn ${bmClass}" onclick="event.stopPropagation();toggleBookmark(this, ${i})" title="收藏">&#x2B50;</button>
+      </div>
+      <div class="card-header">
+        <span class="card-platform ${r.platform}">${r.platform_name}</span>
+      </div>
+      <div class="card-title">${r.title}</div>
+      ${r.summary ? `<div class="card-summary">${escapeHtml(r.summary)}</div>` : ''}
+      <div class="card-meta">
+        ${r.author ? `<span class="card-author">&#x1F464; ${escapeHtml(r.author)}</span>` : ''}
+        ${likesStr} ${commentsStr} ${collectsStr}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Attach click handlers for detail modal
+  container.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', function() {
+      const result = JSON.parse(this.dataset.result);
+      openDetail(result);
+    });
+  });
+}
+
+// ── Bookmark toggle ──
+async function toggleBookmark(btn, idx) {
+  const result = currentResults[idx];
+  if (!result) return;
+
+  if (bookmarkedUrls.has(result.url)) {
+    // Remove bookmark
+    try {
+      const checkResp = await fetch(`/api/bookmarks/check?url=${encodeURIComponent(result.url)}`);
+      const checkData = await checkResp.json();
+      // Find bookmark by URL
+      const listResp = await fetch('/api/bookmarks?page_size=200');
+      const listData = await listResp.json();
+      const bm = listData.results.find(b => b.url === result.url);
+      if (bm) {
+        await fetch(`/api/bookmarks/${bm.id}`, { method: 'DELETE' });
+      }
+      bookmarkedUrls.delete(result.url);
+      btn.classList.remove('active');
+    } catch(e) { console.error(e); }
+  } else {
+    // Add bookmark
+    try {
+      await fetch('/api/bookmarks', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(result)
+      });
+      bookmarkedUrls.add(result.url);
+      btn.classList.add('active');
+    } catch(e) { console.error(e); }
+  }
+}
+
+// ── Bookmarks list ──
+async function loadBookmarks(page) {
+  if (page === undefined) { bmPage = 1; }
+  try {
+    let url = `/api/bookmarks?page=${bmPage}&page_size=20`;
+    if (bmTag) url += `&tag=${encodeURIComponent(bmTag)}`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+
+    document.getElementById('bmEmpty').classList.toggle('active', !data.total && bmPage === 1);
+
+    const container = document.getElementById('bmResults');
+    if (bmPage === 1) container.innerHTML = '';
+
+    const results = data.results.map(b => {
+      const r = JSON.parse(b.result_json);
+      r._bm_id = b.id;
+      r._bm_tags = b.tags || [];
+      return r;
+    });
+    renderBmCards(container, results);
+
+    document.getElementById('bmLoadMoreWrap').classList.toggle('active', data.has_next);
+    if (data.has_next) {
+      document.getElementById('bmLoadMoreBtn').disabled = false;
+    }
+
+    // Load tags for filter
+    loadTagFilters();
+  } catch(e) { console.error(e); }
+}
+
+function loadMoreBookmarks() {
+  bmPage++;
+  loadBookmarks(bmPage);
+}
+
+function renderBmCards(container, results) {
+  const html = results.map((r, i) => {
+    const likesStr = r.likes > 0 ? `<span>&#x2764; ${r.likes.toLocaleString()}</span>` : '';
+    const tagPills = (r._bm_tags || []).map(t => `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;background:${t.color}20;color:${t.color};margin-right:4px">${escapeHtml(t.name)}</span>`).join('');
+    return `<div class="card" style="padding-right:48px">
+      <div class="card-actions">
+        <button class="bm-btn active" onclick="event.stopPropagation();removeBookmark(${r._bm_id},this.closest('.card'))" title="取消收藏">&#x2B50;</button>
+      </div>
+      <div class="card-header">
+        <span class="card-platform ${r.platform}">${r.platform_name}</span>
+      </div>
+      <div class="card-title">${r.title}</div>
+      ${r.summary ? `<div class="card-summary">${escapeHtml(r.summary)}</div>` : ''}
+      <div class="card-meta">
+        ${r.author ? `<span class="card-author">&#x1F464; ${escapeHtml(r.author)}</span>` : ''}
+        ${likesStr}
+      </div>
+      ${tagPills ? `<div style="margin-top:8px">${tagPills}</div>` : ''}
+    </div>`;
+  }).join('');
+  container.insertAdjacentHTML('beforeend', html);
+}
+
+async function removeBookmark(bmId, cardEl) {
+  await fetch(`/api/bookmarks/${bmId}`, { method: 'DELETE' });
+  cardEl.remove();
+  // Also update current bookmark URLs set
+  bmPage = 1;
+  loadBookmarks(1);
+}
+
+// ── Tag filters ──
+async function loadTagFilters() {
+  try {
+    const resp = await fetch('/api/tags');
+    const data = await resp.json();
+    const container = document.getElementById('tagFilters');
+    container.innerHTML = data.results.map(t => {
+      const activeClass = (bmTag === t.name) ? ' active' : '';
+      return `<span class="tag-chip${activeClass}" onclick="filterByTag('${escapeHtml(t.name)}')">${escapeHtml(t.name)}</span>`;
+    }).join('');
+    if (data.results.length && !container.querySelector('.all-chip')) {
+      const allActive = !bmTag ? ' active' : '';
+      container.insertAdjacentHTML('afterbegin', `<span class="tag-chip all-chip${allActive}" onclick="filterByTag(null)">全部</span>`);
+      if (!bmTag) container.querySelector('.all-chip').classList.add('active');
+    }
+  } catch(e) { console.error(e); }
+}
+
+function filterByTag(tag) {
+  bmTag = tag;
+  bmPage = 1;
+  document.getElementById('bmResults').innerHTML = '';
+  loadBookmarks(1);
+  // Update chip styles
+  document.querySelectorAll('#tagFilters .tag-chip').forEach(c => {
+    c.classList.toggle('active', (tag === null && c.classList.contains('all-chip')) || c.textContent.trim() === tag);
+  });
+}
+
+// ── Detail Modal ──
+async function openDetail(result) {
+  const overlay = document.getElementById('modalOverlay');
+  document.getElementById('modalTitle').innerHTML = result.title;
+  document.getElementById('modalMeta').innerHTML = `
+    <span class="card-platform ${result.platform}">${result.platform_name}</span>
+    ${result.author ? `<span class="card-author">&#x1F464; ${escapeHtml(result.author)}</span>` : ''}
+    ${result.likes > 0 ? `<span>&#x2764; ${result.likes.toLocaleString()}</span>` : ''}
+  `;
+  document.getElementById('modalBody').innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div><div style="color:var(--text-dim);margin-top:12px">加载完整内容...</div></div>';
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="bm-btn ${bookmarkedUrls.has(result.url) ? 'active' : ''}" onclick="modalToggleBookmark('${escapeHtml(result.url)}')" title="收藏">&#x2B50;</button>
+    <a href="${escapeHtml(result.url)}" target="_blank" rel="noopener" class="modal-source-link">&#x1F517; 查看原文</a>
+  `;
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Fetch detail content
+  try {
+    const contentId = result.url.split('/').pop() || result.url;
+    const resp = await fetch(`/api/detail/${result.platform}/${encodeURIComponent(contentId)}?url=${encodeURIComponent(result.url)}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      document.getElementById('modalBody').innerHTML =
+        `<div style="white-space:pre-wrap;word-break:break-word">${escapeHtml(data.full_text || data.summary || '暂无详细内容')}</div>`;
+    } else {
+      // Fallback: show summary with link
+      document.getElementById('modalBody').innerHTML =
+        `<p>${escapeHtml(result.summary || '暂无详细内容')}</p>
+         <p style="margin-top:16px"><a href="${escapeHtml(result.url)}" target="_blank" style="color:var(--accent)">查看原文 &rarr;</a></p>`;
+    }
+  } catch(e) {
+    document.getElementById('modalBody').innerHTML =
+      `<p>${escapeHtml(result.summary || '暂无详细内容')}</p>
+       <p style="margin-top:16px;color:var(--text-dim)">无法加载完整内容，请查看原文</p>`;
+  }
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+async function modalToggleBookmark(url) {
+  // Find result in current results or bookmark list
+  const result = currentResults.find(r => r.url === url);
+  if (!result) return;
+  if (bookmarkedUrls.has(url)) {
+    const listResp = await fetch('/api/bookmarks?page_size=200');
+    const listData = await listResp.json();
+    const bm = listData.results.find(b => b.url === url);
+    if (bm) await fetch(`/api/bookmarks/${bm.id}`, { method: 'DELETE' });
+    bookmarkedUrls.delete(url);
+  } else {
+    await fetch('/api/bookmarks', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(result)
+    });
+    bookmarkedUrls.add(url);
+  }
+  // Update button state
+  const btn = document.querySelector('#modalFooter .bm-btn');
+  if (btn) btn.classList.toggle('active', bookmarkedUrls.has(url));
+}
+
+// Keyboard: Escape closes modal
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
+
+// ── Init ──
 doSearch();
 </script>
 </body>
