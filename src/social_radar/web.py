@@ -20,7 +20,7 @@ from .aggregator import (
 )
 from .config import MAX_PAGE_SIZE, LOG_LEVEL, LOG_PATH, ensure_data_dir
 from .store import get_store
-from .detail import fetch_detail
+from .detail import fetch_xiaohongshu_detail, fetch_zhihu_detail, extract_xiaohongshu_note_id
 
 ensure_data_dir()
 
@@ -191,20 +191,25 @@ async def content_detail(
     if not api_key:
         return JSONResponse({"error": "TIKHUB_API_KEY not configured"}, status_code=500)
 
-    all_platforms = load_platforms()
-    platform_cfg = next((p for p in all_platforms if p.key == platform), None)
-    if not platform_cfg:
-        return JSONResponse({"error": f"Unknown platform: {platform}"}, status_code=400)
-
     store = get_store()
     cached = store.get_cached_content(platform, content_id)
     if cached:
         return {"cached": True, **cached}
 
-    detail = fetch_detail(platform_cfg, url, api_key)
+    # Use direct REST API fetchers
+    detail = None
+    if platform == "xiaohongshu":
+        note_id = extract_xiaohongshu_note_id(url) or content_id
+        if note_id:
+            detail = await asyncio.to_thread(fetch_xiaohongshu_detail, note_id, api_key)
+    elif platform == "zhihu":
+        detail = await asyncio.to_thread(fetch_zhihu_detail, url, api_key)
+
     if detail is None:
         return JSONResponse({"error": "Failed to fetch detail content"}, status_code=502)
 
+    if content_id:
+        store.set_cached_content(platform, content_id, detail)
     return {"cached": False, **detail}
 
 

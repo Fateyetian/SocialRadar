@@ -1,157 +1,162 @@
-"""Content detail fetching via TikHub MCP detail tools."""
+"""Content detail via TikHub REST API — gets full article/note body text."""
 
 from __future__ import annotations
 
-import json
 import re
 import logging
 
-from .client import TikHubClient
-from .platforms import PlatformConfig
+import httpx
+
 from .store import get_store
 
 logger = logging.getLogger("socialradar.detail")
 
+TIKHUB_API = "https://api.tikhub.io"
+TIMEOUT = 20.0
 
-def fetch_detail(platform_cfg: PlatformConfig, url: str, api_key: str) -> dict | None:
-    """Fetch full content detail for a given URL. Returns dict or None on failure."""
-    store = get_store()
 
-    # Determine content ID for cache lookup
-    if platform_cfg.key == "xiaohongshu":
-        content_id = _extract_xiaohongshu_note_id(url)
-    elif platform_cfg.key == "zhihu":
-        content_id = _extract_zhihu_ids(url) or url
-    else:
-        content_id = url
+def fetch_xiaohongshu_detail(note_id: str, api_key: str) -> dict | None:
+    """Fetch full Xiaohongshu note detail via REST API (Web V2)."""
+    with httpx.Client(
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=TIMEOUT,
+    ) as c:
+        try:
+            resp = c.get(
+                f"{TIKHUB_API}/api/v1/xiaohongshu/web_v2/fetch_feed_notes_v2",
+                params={"note_id": note_id},
+            )
+            if resp.status_code != 200:
+                logger.warning("XHS Web V2 returned %d", resp.status_code)
+                return None
+            data = resp.json()
+        except Exception as e:
+            logger.warning("XHS detail request failed: %s", e)
+            return None
 
-    # Check cache
-    cached = store.get_cached_content(platform_cfg.key, content_id)
-    if cached is not None:
-        logger.info("Content cache hit: %s/%s", platform_cfg.key, content_id)
-        return cached
+    return _parse_xhs_v2(data, note_id)
 
-    # Fetch from TikHub
+
+def _parse_xhs_v2(data: dict, note_id: str) -> dict | None:
     try:
-        client = TikHubClient(platform_cfg.endpoint, api_key)
-        client.initialize()
-
-        if platform_cfg.key == "xiaohongshu":
-            result = _fetch_xiaohongshu_detail(client, platform_cfg, url, content_id)
-        elif platform_cfg.key == "zhihu":
-            result = _fetch_zhihu_detail(client, platform_cfg, url)
+        inner = data.get("data", {})
+        items = inner.get("data", [inner])
+        if isinstance(items, list):
+            first_block = items[0] if items else {}
         else:
-            result = None
-
-        client.close()
-
-        if result:
-            store.set_cached_content(platform_cfg.key, content_id, result)
-        return result
-    except Exception as e:
-        logger.warning("Detail fetch failed for %s/%s: %s", platform_cfg.key, url, e)
+            first_block = items
+        note_list = first_block.get("note_list", [first_block])
+        note = note_list[0] if note_list else {}
+    except Exception:
         return None
 
-
-def _fetch_xiaohongshu_detail(client: TikHubClient, cfg: PlatformConfig, url: str, note_id: str) -> dict | None:
-    if not note_id or not cfg.detail_tool:
-        return None
-    resp = client.call_tool(cfg.detail_tool, {"note_id": note_id})
-    raw = json.loads(resp)
-
-    # Parse response: data.data.data....
     try:
-        data = raw.get("data", {}).get("data", raw.get("data", {}))
-        note = data.get("note", data)
         title = note.get("title", "") or note.get("display_title", "")
         desc = note.get("desc", "")
-        user = note.get("user", {})
+        user = note.get("user", {}) or {}
         author = user.get("nickname", "") if isinstance(user, dict) else ""
-        images = []
-        image_list = note.get("image_list", []) or note.get("images", [])
-        for img in image_list:
-            if isinstance(img, dict):
-                img_url = img.get("url", "") or img.get("url_default", "") or img.get("info_list", [{}])[0].get("url", "")
-                if img_url:
-                    images.append(img_url)
-
         return {
             "platform": "xiaohongshu",
             "platform_name": "小红书",
             "title": title,
             "full_text": desc,
             "author": author,
-            "images": images,
+            "images": [],
+            "source_url": f"https://www.xiaohongshu.com/explore/{note_id}",
+        }
+    except Exception:
+        return None
+
+
+def fetch_zhihu_detail(url: str, api_key: str) -> dict | None:
+    """Fetch full Zhihu article or answer detail via REST API."""
+    article_m = re.search(r"/articles/(\d+)", url)
+    q_m = re.search(r"/question/(\d+)", url)
+    a_m = re.search(r"/answer/(\d+)", url)
+
+    with httpx.Client(
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=TIMEOUT,
+    ) as c:
+        # Article detail
+        if article_m:
+            try:
+                resp = c.get(
+                    f"{TIKHUB_API}/api/v1/zhihu/web/fetch_column_article_detail",
+                    params={"article_id": article_m.group(1)},
+                )
+                if resp.status_code == 200:
+                    return _parse_zhihu_article(resp.json(), url)
+            except Exception as e:
+                logger.warning("Zhihu article detail failed: %s", e)
+
+        # Question answers
+        if q_m:
+            try:
+                resp = c.get(
+                    f"{TIKHUB_API}/api/v1/zhihu/web/fetch_question_answers",
+                    params={"question_id": q_m.group(1), "limit": 5, "offset": 0, "order": "default"},
+                )
+                if resp.status_code == 200:
+                    return _parse_zhihu_answer(resp.json(), a_m.group(1) if a_m else "", url)
+            except Exception as e:
+                logger.warning("Zhihu answer detail failed: %s", e)
+
+    return None
+
+
+def _parse_zhihu_article(data: dict, url: str) -> dict | None:
+    try:
+        d = data.get("data", {})
+        title = d.get("title", "")
+        content = d.get("content", "") or d.get("body", "")
+        author_info = d.get("author", {})
+        author = author_info.get("name", "") if isinstance(author_info, dict) else ""
+        return {
+            "platform": "zhihu",
+            "platform_name": "知乎",
+            "title": title,
+            "full_text": _strip_html(content)[:10000],
+            "author": author,
+            "images": [],
             "source_url": url,
         }
     except Exception:
         return None
 
 
-def _fetch_zhihu_detail(client: TikHubClient, cfg: PlatformConfig, url: str) -> dict | None:
-    ids = _extract_zhihu_ids(url)
-    if not ids or not cfg.question_answers_tool:
-        return _fallback_zhihu_detail(client, cfg, url)
-
-    qid, aid = ids
-    question_id = qid or aid  # fall back to answer_id as question_id
+def _parse_zhihu_answer(data: dict, target_aid: str, url: str) -> dict | None:
     try:
-        resp = client.call_tool(
-            cfg.question_answers_tool,
-            {"question_id": question_id, "limit": 5, "offset": 0},
-        )
-    except Exception:
-        return _fallback_zhihu_detail(client, cfg, url)
+        items = data.get("data", {}).get("data", data.get("data", []))
+        if not isinstance(items, list):
+            items = [items] if items else []
 
-    raw = json.loads(resp)
-    try:
-        data_list = raw.get("data", {}).get("data", [])
-        if not data_list:
-            return _fallback_zhihu_detail(client, cfg, url)
-
-        # Take the first/or specified answer
         target = None
-        for item in data_list:
-            obj = item.get("object", item)
-            obj_id = str(obj.get("id", ""))
-            if aid and obj_id == aid:
+        for item in items:
+            obj = item.get("object", item) if isinstance(item, dict) else {}
+            aid = str(obj.get("id", ""))
+            if target_aid and aid == target_aid:
                 target = obj
                 break
-        if not target:
-            target = data_list[0].get("object", data_list[0])
+        if not target and items:
+            first = items[0]
+            target = first.get("object", first) if isinstance(first, dict) else {}
 
-        title = obj.get("question", {}).get("title", "") if not aid else ""
+        if not target:
+            return None
+
+        question = target.get("question", {})
+        title = question.get("title", "") if isinstance(question, dict) else ""
         content = target.get("content", "") or target.get("excerpt", "")
-        author = target.get("author", {})
-        author_name = author.get("name", "") if isinstance(author, dict) else ""
+        author_info = target.get("author", {})
+        author = author_info.get("name", "") if isinstance(author_info, dict) else ""
 
         return {
             "platform": "zhihu",
             "platform_name": "知乎",
             "title": title,
-            "full_text": _strip_html(content)[:5000],
-            "author": author_name,
-            "images": [],
-            "source_url": url,
-        }
-    except Exception:
-        return _fallback_zhihu_detail(client, cfg, url)
-
-
-def _fallback_zhihu_detail(client: TikHubClient, cfg: PlatformConfig, url: str) -> dict | None:
-    """Try AI search as fallback for article detail."""
-    if not cfg.ai_search_tool:
-        return None
-    try:
-        resp = client.call_tool(cfg.ai_search_tool, {"message_content": url})
-        raw = json.loads(resp)
-        text = raw.get("data", {}).get("data", {}).get("text", "")
-        return {
-            "platform": "zhihu",
-            "platform_name": "知乎",
-            "title": "",
-            "full_text": text[:5000] if text else "",
-            "author": "",
+            "full_text": _strip_html(content)[:10000],
+            "author": author,
             "images": [],
             "source_url": url,
         }
@@ -159,22 +164,13 @@ def _fallback_zhihu_detail(client: TikHubClient, cfg: PlatformConfig, url: str) 
         return None
 
 
-def _extract_xiaohongshu_note_id(url: str) -> str:
+def extract_xiaohongshu_note_id(url: str) -> str:
     m = re.search(r"/explore/([a-zA-Z0-9]+)", url)
-    return m.group(1) if m else ""
-
-
-def _extract_zhihu_ids(url: str) -> tuple[str, str] | None:
-    """Extract (question_id, answer_id) from a Zhihu URL."""
-    qm = re.search(r"/question/(\d+)", url)
-    qid = qm.group(1) if qm else ""
-    am = re.search(r"/answer/(\d+)", url)
-    aid = am.group(1) if am else ""
-    if qid or aid:
-        return qid, aid
-    return None
+    if m: return m.group(1)
+    m = re.search(r"/discovery/item/([a-zA-Z0-9]+)", url)
+    if m: return m.group(1)
+    return ""
 
 
 def _strip_html(text: str) -> str:
-    import re as _re
-    return _re.sub(r"<[^>]+>", "", text)
+    return re.sub(r"<[^>]+>", "", text)
